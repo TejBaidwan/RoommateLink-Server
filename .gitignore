@@ -1,0 +1,11 @@
+# Env files
+*.env
+
+# Logs
+*.log
+
+# OS & IDE
+.DS_Store
+.idea/
+
+server/node_modules
