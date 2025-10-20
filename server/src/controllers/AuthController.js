@@ -42,7 +42,7 @@ export const register = async (req, res) => {
         }
 
         // Create the salt for the password, and create the hashed value
-        const passwordSalt = await bcrypt.genSalt(password, 10);
+        const passwordSalt = await bcrypt.genSalt( 10);
         const passwordHash = await bcrypt.hash(password, passwordSalt);
 
         // Create and insert a new user object into the database
