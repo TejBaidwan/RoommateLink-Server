@@ -1,0 +1,9 @@
+### REGISTERING A USER
+POST https://roommatelink-server-production.up.railway.app/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "testuser@example.com",
+  "password": "mypassword123",
+  "password_confirmation": "mypassword123"
+}
