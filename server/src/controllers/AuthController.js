@@ -65,3 +65,67 @@ export const register = async (req, res) => {
         })
     }
 }
+
+// Logging in a user logic
+export const login = async (req, res) => {
+
+    try {
+
+        // Validating the request contents
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                errors: errors.array()
+            })
+        }
+
+        // Deconstructing the request payload to get the email and password
+        const { email, password } = req.body;
+
+        // Looking for an existing user with this email
+        const existingUser = await prisma.user.findUnique(
+            {where: { email }}
+        )
+
+        // If one is not found, indicate such without leaking the existence or absence
+        if (!existingUser) {
+            return res.status(400).json({
+                message: 'Invalid email or password',
+            });
+        }
+
+        // Checking if the entered password matches the stored hashed password
+        const passwordMatch = await bcrypt.compare(password, existingUser.passwordHash);
+        if (!passwordMatch) {
+            return res.status(400).json({
+                message: 'Invalid email or password',
+            });
+        }
+
+        // Checking if the user has been verified through their email
+        if (!existingUser.isVerified) {
+            return res.status(400).json({
+                message: 'Please verify your email',
+            });
+        }
+
+        // Generating a JWT token for future authentication requests and signing it to the user
+        const token = jwt.sign({
+            id: existingUser.id,
+            email: existingUser.email,
+        }, process.env.APP_SECRET, {
+            expiresIn: '1h',
+        });
+
+        // Returning the success response
+        return res.status(200).json({
+            message: 'User successfully logged in',
+            token,
+            user: { id: existingUser.id, email: existingUser.email }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: 'Server Error!',
+        });
+    }
+}
