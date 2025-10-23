@@ -7,3 +7,12 @@ Content-Type: application/json
   "password": "myPassword123!",
   "password_confirmation": "myPassword123!"
 }
+
+### LOGGING IN A USER
+POST https://roommatelink-server-production.up.railway.app/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "testuser@example.com",
+  "password": "myPassword123!"
+}

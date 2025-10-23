@@ -1,7 +1,8 @@
 import express from 'express';
 import { body } from 'express-validator'
 import {
-    register
+    register,
+    login
 } from '../controllers/AuthController.js';
 
 // Express router paths for auth routes
@@ -22,5 +23,15 @@ router.post('/register',
             .matches(/[\W_]/)
             .withMessage('Password must contain a special character.'),
     ], register);
+
+// Login auth route with validation
+router.post(
+    "/login",
+    [
+        body("email").isEmail().withMessage("Valid email required"),
+        body("password").notEmpty().withMessage("Valid password required"),
+    ],
+    login
+)
 
 export default router;
