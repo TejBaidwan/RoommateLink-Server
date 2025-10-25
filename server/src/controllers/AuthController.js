@@ -70,7 +70,7 @@ export const register = async (req, res) => {
         });
 
         // Add the email request to the queue
-        await addEmailJobToQueue(newUser.email, tokenHash, newUser.id)
+        await addEmailJobToQueue(newUser.email, rawToken, newUser.id)
 
         // Return the success response
         return res.status(201).json({
@@ -210,7 +210,7 @@ export const resendVerification = async (req, res) => {
         }
 
         // Generating a new verification token
-        const raw = generateRawToken();
+        const rawToken = generateRawToken();
         const tokenHash = await hashToken(raw);
         const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
 
@@ -220,7 +220,7 @@ export const resendVerification = async (req, res) => {
         });
 
         // Add the email request to the queue
-        await addEmailJobToQueue(email, tokenHash, user.id)
+        await addEmailJobToQueue(email, rawToken, user.id)
 
         return res.json({ message: "Verification email sent" });
     } catch (err) {
