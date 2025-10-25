@@ -2,7 +2,9 @@ import express from 'express';
 import { body } from 'express-validator'
 import {
     register,
-    login
+    login,
+    verifyEmail,
+    resendVerification
 } from '../controllers/AuthController.js';
 
 // Express router paths for auth routes
@@ -33,5 +35,9 @@ router.post(
     ],
     login
 )
+
+// Verify email and resend email routes
+router.get("/verify-email", verifyEmail);
+router.post("/resend-verification", resendVerification);
 
 export default router;

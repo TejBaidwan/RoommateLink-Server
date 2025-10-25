@@ -148,3 +148,83 @@ export const login = async (req, res) => {
         });
     }
 }
+
+// Verifying a users email upon registration logic
+export const verifyEmail = async (req, res) => {
+    try {
+
+        // Deconstructing the request payload and getting the token and userid
+        const {token, uid} = req.query;
+        if (!token || !uid){
+            return res.status(400).json({message: "Invalid verification link"});
+        }
+
+        // Finding the verification token for the logging-in user
+        const userId = uid
+        const record = await prisma.emailVerificationToken.findFirst({
+            where: { userId, expiresAt: { gt: new Date() } },
+            orderBy: { createdAt: "desc" },
+        });
+
+        // Notifying if there is no valid token found
+        if (!record) {
+            return res.status(400).json({message: "Token not found or expired"});
+        }
+
+        // Verifying the token with the hashed token
+        const validToken = await verifyToken(token, record.tokenHash);
+        if (!validToken) {
+            return res.status(400).json({message: "Invalid token"});
+        }
+
+        // Updating the isVerified field for the logging-in user to true
+        await prisma.user.update({
+            where: { id: userId },
+            data: { isVerified: true }
+        });
+
+        // Deleting the tokens associated with this user, as email verification is one-time
+        await prisma.emailVerificationToken.deleteMany({ where: { userId } });
+
+        return res.json({ message: "Email verified successfully" });
+    } catch (err) {
+        console.error("Verify email error:", err);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
+// Resend verification email logic
+export const resendVerification = async (req, res) => {
+    try {
+
+        // Deconstructing the request payload to get the email, and finding the associated user
+        const { email } = req.body;
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user) {
+            return res.status(200).json({message: "If the email exists, a link was sent."});
+        }
+
+        // If the user is already verified, indicate so
+        if (user.isVerified) {
+            return res.status(200).json({message: "Account already verified."});
+        }
+
+        // Generating a new verification token
+        const raw = generateRawToken();
+        const tokenHash = await hashToken(raw);
+        const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+
+        // Deleting the tokens associated with this user, as email verification is one-time
+        await prisma.emailVerificationToken.create({
+            data: { userId: user.id, tokenHash, expiresAt }
+        });
+
+        // Add the email request to the queue
+        await addEmailJobToQueue(email, tokenHash, user.id)
+
+        return res.json({ message: "Verification email sent" });
+    } catch (err) {
+        console.error("Resend verification error:", err);
+        res.status(500).json({ message: "Server error" });
+    }
+};
