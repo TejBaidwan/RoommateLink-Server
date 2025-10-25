@@ -8,6 +8,10 @@ dotenv.config()
 // Create a connection to the redis service
 const connection = new IORedis(
     process.env.REDIS_URL,
+    {
+        maxRetriesPerRequest: null,
+        enableReadyCheck: true
+    }
 )
 
 // Generate an email queue
