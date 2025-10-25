@@ -7,7 +7,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // Method for sending an email to a user for email verification
 export async function sendVerificationEmail(email, token, userId) {
 
-    const verifyUrl = `${process.env.API_URL}/verify-email?token=${token}&id=${userId}`;
+    const verifyUrl = `${process.env.API_URL}/api/auth/verify-email?token=${token}&id=${userId}`;
 
     return await resend.emails.send({
         from: "RoommateLink <onboarding@resend.dev>",
