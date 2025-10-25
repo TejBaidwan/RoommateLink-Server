@@ -154,13 +154,13 @@ export const verifyEmail = async (req, res) => {
     try {
 
         // Deconstructing the request payload and getting the token and userid
-        const {token, uid} = req.query;
-        if (!token || !uid){
+        const {token, id} = req.query;
+        if (!token || !id){
             return res.status(400).json({message: "Invalid verification link"});
         }
 
         // Finding the verification token for the logging-in user
-        const userId = uid
+        const userId = id
         const record = await prisma.emailVerificationToken.findFirst({
             where: { userId, expiresAt: { gt: new Date() } },
             orderBy: { createdAt: "desc" },
