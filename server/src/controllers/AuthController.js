@@ -2,6 +2,8 @@ import prisma from '../config/prismaClient.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { validationResult } from 'express-validator';
+import { generateRawToken, hashToken, verifyToken} from "../utils/token.js";
+import { addEmailJobToQueue} from "../services/emailQueue.js";
 
 // Auth controller that contains the different authentication methods
 
@@ -53,9 +55,26 @@ export const register = async (req, res) => {
             },
         });
 
+        // Generate an email verification token, hash it, and set it to expire in one hour
+        const rawToken = generateRawToken()
+        const tokenHash = await hashToken(rawToken)
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000)
+
+        // Creating a record in the email verification token table
+        await prisma.emailVerificationToken.create({
+            data: {
+                userId: newUser.id,
+                tokenHash,
+                expiresAt,
+            },
+        });
+
+        // Add the email request to the queue
+        await addEmailJobToQueue(newUser.email, tokenHash, newUser.id)
+
         // Return the success response
         return res.status(201).json({
-            message: 'User successfully registered!',
+            message: 'User successfully registered! Please check your email for a verification email!',
             user: { id: newUser.id, email: newUser.email, isVerified: false },
         })
 
