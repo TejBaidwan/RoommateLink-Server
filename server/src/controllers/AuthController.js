@@ -228,3 +228,51 @@ export const resendVerification = async (req, res) => {
         res.status(500).json({ message: "Server error" });
     }
 };
+
+export const requestPasswordReset = async (req, res) => {
+
+    try {
+        // Validating the data received
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                errors: errors.array()
+            });
+        }
+
+        // Deconstruct the request payload, and finding the user with the given email (if applicable)
+        const {email} = req.body;
+        const user = await prisma.user.findUnique({where: {email}});
+        if (!user) {
+            return res.json({
+                message: 'If an account exists, a link was sent.',
+            });
+        }
+
+        // Generate a password reset token, hashing it, and setting it to expire in 30 minutes
+        const rawToken = generateRawToken();
+        const tokenHash = hashToken(rawToken);
+        const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+        // Create a PasswordResetToken and store it in the db
+        await prisma.passwordResetToken.create({
+            data: {
+                userId: user.id,
+                tokenHash,
+                expiresAt
+            }
+        })
+
+        // Add the password reset email request to the background queue
+        await addEmailJobToQueue(user.email, rawToken, user.id, "sendPasswordResetEmail");
+
+        return res.json(
+            {message: "If an account exists, a reset link has been sent."}
+        );
+    } catch (err) {
+        return res.status(500).json({
+            message: 'Server error!'
+        });
+    }
+
+}

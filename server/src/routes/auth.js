@@ -4,7 +4,8 @@ import {
     register,
     login,
     verifyEmail,
-    resendVerification
+    resendVerification,
+    requestPasswordReset
 } from '../controllers/AuthController.js';
 
 // Express router paths for auth routes
@@ -39,5 +40,12 @@ router.post(
 // Verify email and resend email routes
 router.get("/verify-email", verifyEmail);
 router.post("/resend-verification", resendVerification);
+
+// Request password reset route
+router.post("/request-reset",
+    [
+        body("email").isEmail().withMessage("Valid email required"),
+    ],
+    requestPasswordReset);
 
 export default router;
