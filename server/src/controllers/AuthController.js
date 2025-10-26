@@ -302,8 +302,8 @@ export const resetPassword = async (req, res) => {
         }
 
         // Deconstructing the request payload and ensuring a valid token and password exist
-        const { token, id, password } = req.body;
-        if (!token || !id || !password) {
+        const { token, id, password, password_confirmation } = req.body;
+        if (!token || !id || !password || !password_confirmation) {
             return res.status(400).json({
                 message: "Invalid verification link"
             })
@@ -344,14 +344,26 @@ export const resetPassword = async (req, res) => {
             })
         }
 
+        // Get the users password history
         const history = user.passwordHistory.slice(0, 5);
-        for (const oldPassword of history) {
-            const recycled = await bcrypt.compare(password, oldPassword.oldHash);
-            if (recycled) {
-                return res.status(400).json({
-                    message: "Ensure you are not using any previous password"
-                })
-            }
+
+        // Compare new password to all previous ones in parallel to improve response time
+        const results = await Promise.all(
+            history.map(entry => bcrypt.compare(password, entry.oldHash))
+        )
+
+        // If any of the promises return true, then the user is using a recycled password
+        if (results.some(Boolean)) {
+            return res.status(400).json({
+                message: "Ensure you are not using any previous password"
+            })
+        }
+
+        // Check if the users password was confirmed
+        if (password !== password_confirmation) {
+            return res.status(400).json({
+                message: "Passwords do not match"
+            })
         }
 
         // Hash the new password
@@ -397,10 +409,10 @@ export const resetPassword = async (req, res) => {
                 });
             }
 
-            // Delete the password reset tokens as they are on-time use
+            // Delete the password reset tokens as they are one-time use
             await tx.passwordResetToken.deleteMany({
                 where: {
-                    id
+                    userId: id
                 },
             });
         });
