@@ -312,7 +312,7 @@ export const resetPassword = async (req, res) => {
         //Finding the password reset token that's valid and assigned to this user
         const record = await prisma.passwordResetToken.findFirst({
             where: {
-                id, expiresAt: { gt: new Date() }
+                userId: id, expiresAt: { gt: new Date() }
             },
             orderBy: { createdAt: "desc" },
         });
