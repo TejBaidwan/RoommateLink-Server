@@ -302,8 +302,8 @@ export const resetPassword = async (req, res) => {
         }
 
         // Deconstructing the request payload and ensuring a valid token and password exist
-        const { token, id, password } = req.body;
-        if (!token || !id || !password) {
+        const { token, id, password, password_confirmation } = req.body;
+        if (!token || !id || !password || !password_confirmation) {
             return res.status(400).json({
                 message: "Invalid verification link"
             })
@@ -356,6 +356,13 @@ export const resetPassword = async (req, res) => {
         if (results.some(Boolean)) {
             return res.status(400).json({
                 message: "Ensure you are not using any previous password"
+            })
+        }
+
+        // Check if the users password was confirmed
+        if (password !== password_confirmation) {
+            return res.status(400).json({
+                message: "Passwords do not match"
             })
         }
 
