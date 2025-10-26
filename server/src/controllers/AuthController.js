@@ -89,6 +89,7 @@ export const register = async (req, res) => {
     } catch (error) {
         return res.status(500).json({
             message: 'Server Error!',
+            error: error,
         })
     }
 }
@@ -153,6 +154,7 @@ export const login = async (req, res) => {
     } catch (error) {
         return res.status(500).json({
             message: 'Server Error!',
+            error: error,
         });
     }
 }
@@ -280,7 +282,8 @@ export const requestPasswordReset = async (req, res) => {
         );
     } catch (err) {
         return res.status(500).json({
-            message: 'Server error!'
+            message: 'Server error!',
+            error: err
         });
     }
 }
@@ -407,7 +410,8 @@ export const resetPassword = async (req, res) => {
         })
     } catch (err) {
         return res.status(500).json({
-            message: "Server error!"
+            message: "Server error!",
+            error: err,
         })
     }
 }
