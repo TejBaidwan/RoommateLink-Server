@@ -56,9 +56,9 @@ export const register = async (req, res) => {
         });
 
         // Create a record of the password in the password history table for versioned credentials
-        const passwordHistoryAddition = await prisma.passwordHistory.create({
+        await prisma.passwordHistory.create({
             data: {
-                user: newUser.id,
+                userId: newUser.id,
                 oldHash: passwordHash,
             }
         })
