@@ -55,6 +55,14 @@ export const register = async (req, res) => {
             },
         });
 
+        // Create a record of the password in the password history table for versioned credentials
+        const passwordHistoryAddition = await prisma.passwordHistory.create({
+            data: {
+                user: newUser.id,
+                oldHash: passwordHash,
+            }
+        })
+
         // Generate an email verification token, hash it, and set it to expire in one hour
         const rawToken = generateRawToken()
         const tokenHash = await hashToken(rawToken)
@@ -321,24 +329,77 @@ export const resetPassword = async (req, res) => {
             })
         }
 
-        // Update the password for this user
+        // Fetch user and their password history
+        const user = await prisma.user.findUnique(
+            { where: { id },
+                include: { passwordHistory: {orderBy: { createdAt: "desc" } }, },
+            }
+            );
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found"
+            })
+        }
+
+        const history = user.passwordHistory.slice(0, 5);
+        for (const oldPassword of history) {
+            const recycled = await bcrypt.compare(password, oldPassword.oldHash);
+            if (recycled) {
+                return res.status(400).json({
+                    message: "Ensure you are not using any previous password"
+                })
+            }
+        }
+
+        // Hash the new password
         const passwordHash = await bcrypt.hash(password, 10);
-        await prisma.user.update(
-            {
+
+        // I'm using transactions to do multiple database operations at once, to keep it atomic
+        await prisma.$transaction(async (tx) => {
+
+            // Update the users password with the new one
+            await tx.user.update({
                 where: {
-                    id: id,
+                    id
                 },
                 data: {
                     passwordHash
+                },
                 }
-            }
-        );
+            );
 
-        // Deleting the password reset tokens for this user, as they are one-time use
-        await prisma.passwordResetToken.deleteMany({
-            where: {
-                id
+            // Add this password to the password history table
+            await tx.passwordHistory.create({
+                data: {
+                    userId: id,
+                    oldHash: passwordHash,
+                },
+            });
+
+            // Get their previous passwords in descending order by data created
+            const previousHistory = await tx.passwordHistory.findMany({
+                where: {
+                    userId: id,
+                },
+                orderBy: { createdAt: "desc" },
+            });
+
+            // If there is more than 5 passwords, delete the oldest one
+            if (previousHistory.length > 5) {
+                const oldestPassword = previousHistory.slice(5)
+                await tx.passwordHistory.deleteMany({
+                    where: {
+                        id: { in: oldestPassword.map((old) => old.id) },
+                    }
+                });
             }
+
+            // Delete the password reset tokens as they are on-time use
+            await tx.passwordResetToken.deleteMany({
+                where: {
+                    id
+                },
+            });
         });
 
         return res.json({
