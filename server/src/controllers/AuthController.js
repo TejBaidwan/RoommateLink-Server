@@ -70,7 +70,7 @@ export const register = async (req, res) => {
         });
 
         // Add the email request to the queue
-        await addEmailJobToQueue(newUser.email, rawToken, newUser.id)
+        await addEmailJobToQueue(newUser.email, rawToken, newUser.id, "sendVerificationEmail")
 
         // Return the success response
         return res.status(201).json({
@@ -220,7 +220,7 @@ export const resendVerification = async (req, res) => {
         });
 
         // Add the email request to the queue
-        await addEmailJobToQueue(email, rawToken, user.id)
+        await addEmailJobToQueue(email, rawToken, user.id, "sendVerificationEmail");
 
         return res.json({ message: "Verification email sent" });
     } catch (err) {
