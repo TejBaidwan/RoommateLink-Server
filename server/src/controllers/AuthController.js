@@ -252,8 +252,8 @@ export const requestPasswordReset = async (req, res) => {
         }
 
         // Deconstruct the request payload, and finding the user with the given email (if applicable)
-        const {email} = req.body;
-        const user = await prisma.user.findUnique({where: {email}});
+        const { email } = req.body;
+        const user = await prisma.user.findUnique({where: { email }});
         if (!user) {
             return res.json({
                 message: 'If an account exists, a link was sent.',
@@ -262,7 +262,7 @@ export const requestPasswordReset = async (req, res) => {
 
         // Generate a password reset token, hashing it, and setting it to expire in 30 minutes
         const rawToken = generateRawToken();
-        const tokenHash = hashToken(rawToken);
+        const tokenHash = await hashToken(rawToken);
         const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
         // Create a PasswordResetToken and store it in the db
