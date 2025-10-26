@@ -16,3 +16,29 @@ Content-Type: application/json
   "email": "testuser@example.com",
   "password": "myPassword123!"
 }
+
+### RESENDING A VERIFICATION LINK
+POST https://roommatelink-server-production.up.railway.app/api/auth/resend-verification
+Content-Type: application/json
+
+{
+  "email": "testuser@example.com"
+}
+
+### REQUESTING A PASSWORD RESET LINK
+POST https://roommatelink-server-production.up.railway.app/api/auth/request-reset
+Content-Type: application/json
+
+{
+  "email": "testuser@example.com"
+}
+
+### RESETTING A PASSWORD
+POST https://roommatelink-server-production.up.railway.app/api/auth/reset-password?token={token}&id={id}
+Content-Type: application/json
+
+{
+  "token": "tokenvalue",
+  "id": "id",
+  "password": "newPassword"
+}
