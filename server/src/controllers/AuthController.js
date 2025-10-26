@@ -229,6 +229,7 @@ export const resendVerification = async (req, res) => {
     }
 };
 
+// Requesting a password reset email endpoint logic
 export const requestPasswordReset = async (req, res) => {
 
     try {
@@ -274,5 +275,78 @@ export const requestPasswordReset = async (req, res) => {
             message: 'Server error!'
         });
     }
+}
 
+// Resetting a user's password endpoint logic
+export const resetPassword = async (req, res) => {
+
+    try {
+
+        // Validating the data received
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                errors: errors.array()
+            })
+        }
+
+        // Deconstructing the request payload and ensuring a valid token and password exist
+        const { token, id, password } = req.body;
+        if (!token || !id || !password) {
+            return res.status(400).json({
+                message: "Invalid verification link"
+            })
+        }
+
+        //Finding the password reset token that's valid and assigned to this user
+        const record = await prisma.passwordResetToken.findFirst({
+            where: {
+                id, expiresAt: { gt: new Date() }
+            },
+            orderBy: { createdAt: "desc" },
+        });
+
+        // Indicating if an expired, non-existent, or invalid token is presented
+        if (!record) {
+            return res.status(400).json({
+                message: "Token not found or expired"
+            })
+        }
+
+        // Verifying the token with the stored hashed token
+        const validToken = await verifyToken(token, record.tokenHash);
+        if (!validToken) {
+            return res.status(400).json({
+                message: "Invalid token"
+            })
+        }
+
+        // Update the password for this user
+        const passwordHash = await bcrypt.hash(password, 10);
+        await prisma.user.update(
+            {
+                where: {
+                    id: id,
+                },
+                data: {
+                    passwordHash
+                }
+            }
+        );
+
+        // Deleting the password reset tokens for this user, as they are one-time use
+        await prisma.passwordResetToken.deleteMany({
+            where: {
+                id
+            }
+        });
+
+        return res.json({
+            message: "Password reset successfully."
+        })
+    } catch (err) {
+        return res.status(500).json({
+            message: "Server error!"
+        })
+    }
 }
