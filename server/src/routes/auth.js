@@ -4,7 +4,9 @@ import {
     register,
     login,
     verifyEmail,
-    resendVerification
+    resendVerification,
+    requestPasswordReset,
+    resetPassword
 } from '../controllers/AuthController.js';
 
 // Express router paths for auth routes
@@ -39,5 +41,30 @@ router.post(
 // Verify email and resend email routes
 router.get("/verify-email", verifyEmail);
 router.post("/resend-verification", resendVerification);
+
+// Request password reset and reset password routes
+router.post("/request-reset",
+    [
+        body("email").isEmail().withMessage("Valid email required"),
+    ],
+    requestPasswordReset);
+
+router.post("/reset-password",
+    [
+        body("token").notEmpty(),
+        body("id").notEmpty(),
+        body('password').isLength({ min: 8 })
+            .withMessage('Password must be at least 8 characters long.')
+            .matches(/[a-z]/)
+            .withMessage('Password must contain a lowercase letter.')
+            .matches(/[A-Z]/)
+            .withMessage('Password must contain an uppercase letter.')
+            .matches(/\d/)
+            .withMessage('Password must contain a number.')
+            .matches(/[\W_]/)
+            .withMessage('Password must contain a special character.'),
+    ],
+    resetPassword
+)
 
 export default router;

@@ -55,6 +55,14 @@ export const register = async (req, res) => {
             },
         });
 
+        // Create a record of the password in the password history table for versioned credentials
+        const passwordHistoryAddition = await prisma.passwordHistory.create({
+            data: {
+                user: newUser.id,
+                oldHash: passwordHash,
+            }
+        })
+
         // Generate an email verification token, hash it, and set it to expire in one hour
         const rawToken = generateRawToken()
         const tokenHash = await hashToken(rawToken)
@@ -70,7 +78,7 @@ export const register = async (req, res) => {
         });
 
         // Add the email request to the queue
-        await addEmailJobToQueue(newUser.email, rawToken, newUser.id)
+        await addEmailJobToQueue(newUser.email, rawToken, newUser.id, "sendVerificationEmail")
 
         // Return the success response
         return res.status(201).json({
@@ -220,7 +228,7 @@ export const resendVerification = async (req, res) => {
         });
 
         // Add the email request to the queue
-        await addEmailJobToQueue(email, rawToken, user.id)
+        await addEmailJobToQueue(email, rawToken, user.id, "sendVerificationEmail");
 
         return res.json({ message: "Verification email sent" });
     } catch (err) {
@@ -228,3 +236,178 @@ export const resendVerification = async (req, res) => {
         res.status(500).json({ message: "Server error" });
     }
 };
+
+// Requesting a password reset email endpoint logic
+export const requestPasswordReset = async (req, res) => {
+
+    try {
+        // Validating the data received
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                errors: errors.array()
+            });
+        }
+
+        // Deconstruct the request payload, and finding the user with the given email (if applicable)
+        const {email} = req.body;
+        const user = await prisma.user.findUnique({where: {email}});
+        if (!user) {
+            return res.json({
+                message: 'If an account exists, a link was sent.',
+            });
+        }
+
+        // Generate a password reset token, hashing it, and setting it to expire in 30 minutes
+        const rawToken = generateRawToken();
+        const tokenHash = hashToken(rawToken);
+        const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+        // Create a PasswordResetToken and store it in the db
+        await prisma.passwordResetToken.create({
+            data: {
+                userId: user.id,
+                tokenHash,
+                expiresAt
+            }
+        })
+
+        // Add the password reset email request to the background queue
+        await addEmailJobToQueue(user.email, rawToken, user.id, "sendPasswordResetEmail");
+
+        return res.json(
+            {message: "If an account exists, a reset link has been sent."}
+        );
+    } catch (err) {
+        return res.status(500).json({
+            message: 'Server error!'
+        });
+    }
+}
+
+// Resetting a user's password endpoint logic
+export const resetPassword = async (req, res) => {
+
+    try {
+
+        // Validating the data received
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                errors: errors.array()
+            })
+        }
+
+        // Deconstructing the request payload and ensuring a valid token and password exist
+        const { token, id, password } = req.body;
+        if (!token || !id || !password) {
+            return res.status(400).json({
+                message: "Invalid verification link"
+            })
+        }
+
+        //Finding the password reset token that's valid and assigned to this user
+        const record = await prisma.passwordResetToken.findFirst({
+            where: {
+                id, expiresAt: { gt: new Date() }
+            },
+            orderBy: { createdAt: "desc" },
+        });
+
+        // Indicating if an expired, non-existent, or invalid token is presented
+        if (!record) {
+            return res.status(400).json({
+                message: "Token not found or expired"
+            })
+        }
+
+        // Verifying the token with the stored hashed token
+        const validToken = await verifyToken(token, record.tokenHash);
+        if (!validToken) {
+            return res.status(400).json({
+                message: "Invalid token"
+            })
+        }
+
+        // Fetch user and their password history
+        const user = await prisma.user.findUnique(
+            { where: { id },
+                include: { passwordHistory: {orderBy: { createdAt: "desc" } }, },
+            }
+            );
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found"
+            })
+        }
+
+        const history = user.passwordHistory.slice(0, 5);
+        for (const oldPassword of history) {
+            const recycled = await bcrypt.compare(password, oldPassword.oldHash);
+            if (recycled) {
+                return res.status(400).json({
+                    message: "Ensure you are not using any previous password"
+                })
+            }
+        }
+
+        // Hash the new password
+        const passwordHash = await bcrypt.hash(password, 10);
+
+        // I'm using transactions to do multiple database operations at once, to keep it atomic
+        await prisma.$transaction(async (tx) => {
+
+            // Update the users password with the new one
+            await tx.user.update({
+                where: {
+                    id
+                },
+                data: {
+                    passwordHash
+                },
+                }
+            );
+
+            // Add this password to the password history table
+            await tx.passwordHistory.create({
+                data: {
+                    userId: id,
+                    oldHash: passwordHash,
+                },
+            });
+
+            // Get their previous passwords in descending order by data created
+            const previousHistory = await tx.passwordHistory.findMany({
+                where: {
+                    userId: id,
+                },
+                orderBy: { createdAt: "desc" },
+            });
+
+            // If there is more than 5 passwords, delete the oldest one
+            if (previousHistory.length > 5) {
+                const oldestPassword = previousHistory.slice(5)
+                await tx.passwordHistory.deleteMany({
+                    where: {
+                        id: { in: oldestPassword.map((old) => old.id) },
+                    }
+                });
+            }
+
+            // Delete the password reset tokens as they are on-time use
+            await tx.passwordResetToken.deleteMany({
+                where: {
+                    id
+                },
+            });
+        });
+
+        return res.json({
+            message: "Password reset successfully."
+        })
+    } catch (err) {
+        return res.status(500).json({
+            message: "Server error!"
+        })
+    }
+}

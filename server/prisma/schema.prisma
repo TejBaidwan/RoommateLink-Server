@@ -24,6 +24,8 @@ model User {
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
   verificationTokens EmailVerificationToken[]
+  resetTokens        PasswordResetToken[]
+  passwordHistory    PasswordHistory[]
 }
 
 // Email verification tokens model
@@ -40,4 +42,33 @@ model EmailVerificationToken {
   @@index([userId])
   @@index([expiresAt])
   @@index([tokenHash])
+}
+
+// Password reset token model
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  used      Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([tokenHash])
+}
+
+// Password history model for preventing password recycling during password resets
+model PasswordHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  oldHash   String   @unique
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([oldHash])
 }
