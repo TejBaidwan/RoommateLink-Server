@@ -221,7 +221,7 @@ export const resendVerification = async (req, res) => {
 
         // Generating a new verification token
         const rawToken = generateRawToken();
-        const tokenHash = await hashToken(raw);
+        const tokenHash = await hashToken(rawToken);
         const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
 
         // Deleting the tokens associated with this user, as email verification is one-time
