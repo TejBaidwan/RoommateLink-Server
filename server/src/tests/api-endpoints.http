@@ -22,7 +22,7 @@ POST https://roommatelink-server-production.up.railway.app/api/auth/resend-verif
 Content-Type: application/json
 
 {
-  "email": "testuser@example.com"
+  "email": "tejvirs.baidwan@gmail.com"
 }
 
 ### REQUESTING A PASSWORD RESET LINK
