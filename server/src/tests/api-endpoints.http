@@ -13,7 +13,7 @@ POST https://roommatelink-server-production.up.railway.app/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "testuser@example.com",
+  "email": "rltestmail@yahoo.com",
   "password": "myPassword123!"
 }
 
@@ -30,15 +30,24 @@ POST https://roommatelink-server-production.up.railway.app/api/auth/request-rese
 Content-Type: application/json
 
 {
-  "email": "testuser@example.com"
+  "email": "rltestmail@yahoo.com"
 }
 
-### RESETTING A PASSWORD
-POST https://roommatelink-server-production.up.railway.app/api/auth/reset-password?token={token}&id={id}
+### VERIFYING AN OTP CODE
+POST https://roommatelink-server-production.up.railway.app/api/auth/verify-reset-otp
 Content-Type: application/json
 
 {
-  "token": "tokenvalue",
-  "id": "id",
-  "password": "newPassword"
+  "email": "rltestmail@yahoo.com",
+  "otp": "484967"
+}
+
+### RESETTING A PASSWORD
+POST https://roommatelink-server-production.up.railway.app/api/auth/reset-password
+Content-Type: application/json
+
+{
+  "userId": "ba9904a3-cb29-4884-a4fe-8d4f75ae0bf0",
+  "password": "myPassword124!",
+  "password_confirmation": "myPassword124!"
 }
