@@ -36,7 +36,7 @@ export const emailWorker = new Worker(
         }
         else if (job.name === "sendPasswordResetEmail") {
             const { email, token, userId } = job.data;
-            await sendPasswordResetEmail(email, token, userId);
+            await sendPasswordResetEmail(email, token);
             console.log(`Email sent for userId=${userId}, email=${email}`);
         }
     },

@@ -28,28 +28,21 @@ export async function sendVerificationEmail(email, token, userId) {
 }
 
 // Method for sending an email to a user for email verification
-export async function sendPasswordResetEmail(email, token, userId) {
-
-    const verifyUrl = `${process.env.API_URL}/api/auth/reset-password?token=${token}&id=${userId}`;
-
+export async function sendPasswordResetEmail(email, code) {
     return await resend.emails.send({
         from: "RoommateLink <onboarding@resend.dev>",
         to: email,
-        subject: "Reset your password",
+        subject: "Your password reset code",
         html: `
       <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial">
-        <h1>Reset password request</h1>
-        <p>We received a request to reset your password. Click the button below.</p>
-        <p><a href="${verifyUrl}"
-              style="display:inline-block;padding:10px 16px;background:#0f766e;color:#fff;
-                     text-decoration:none;border-radius:8px;">Reset Password</a></p>
-        <p>If the button doesn't work, copy this URL:</p>
-        <p style="word-break:break-all">${verifyUrl}</p>
+        <h1>Password Reset Request</h1>
+        <p>We received a request to reset your password. Enter the code below in the app to continue.</p>
+        <h2 style="font-size:24px;margin:16px 0;color:#0f766e">${code}</h2>
         <p style="color:#6b7280;font-size:12px;margin-top:12px">
-          If you didn’t request this, you can ignore this email.
+          For your security, this code will expire in 10 minutes.
         </p>
         <p style="color:#6b7280;font-size:12px;margin-top:12px">
-          For your security, this link will expire in 30 minutes or once used
+          If you didn’t request this, you can ignore this email.
         </p>
       </div>
     `,
