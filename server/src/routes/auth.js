@@ -6,7 +6,7 @@ import {
     verifyEmail,
     resendVerification,
     requestPasswordReset,
-    resetPassword
+    resetPassword, verifyResetOTP
 } from '../controllers/AuthController.js';
 
 // Express router paths for auth routes
@@ -48,6 +48,15 @@ router.post("/request-reset",
         body("email").isEmail().withMessage("Valid email required"),
     ],
     requestPasswordReset);
+
+// Verify OTP reset endpoint
+router.post('/verify-reset-otp',
+    [
+        body("email").isEmail().withMessage("Valid email required"),
+        body("otp").notEmpty().withMessage("Valid OTP number required"),
+    ],
+    verifyResetOTP
+    )
 
 router.post("/reset-password",
     [

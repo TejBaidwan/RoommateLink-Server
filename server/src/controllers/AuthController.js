@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { validationResult } from 'express-validator';
 import { generateRawToken, hashToken, verifyToken} from "../utils/token.js";
 import { addEmailJobToQueue} from "../services/emailQueue.js";
-import {generateOTP} from "../utils/otp.js";
+import {generateOTP, verifyOTP} from "../utils/otp.js";
 
 // Auth controller that contains the different authentication methods
 
@@ -240,6 +240,55 @@ export const resendVerification = async (req, res) => {
     }
 };
 
+// Verify a reset OTP endpoint
+export const verifyResetOTP = async (req, res) => {
+    try {
+
+        // Deconstructing the payload and getting the email and entered OTP
+        const { email, otp } = req.body;
+
+        // If the payload isn;t full indicate such
+        if (!email || !otp) {
+            return res.status(400).json({ message: "Email and OTP are required" });
+        }
+
+        // Get the user with this email
+        const user = await prisma.user.findUnique({ where: { email } });
+        const userId = user.id;
+
+        // Find the latest unexpired OTP for this user
+        const record = await prisma.passwordResetToken.findFirst({
+            where: {
+                userId,
+                expiresAt: { gt: new Date() }
+            },
+            orderBy: { createdAt: "desc" },
+        });
+
+        // Indicate if not OTP was found
+        if (!record) {
+            return res.status(400).json({ message: "OTP not found or expired" });
+        }
+
+        // Verify OTP using timing-safe comparison
+        const isValid = verifyOTP(otp, record.tokenHash);
+        if (!isValid) {
+            return res.status(400).json({ message: "Invalid OTP" });
+        }
+
+        // Delete all OTP once used
+        await prisma.passwordResetToken.deleteMany({
+            where: { userId }
+        });
+
+        // Respond with success message
+        return res.json({ message: "OTP verified", userId: record.userId });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ message: "Server error", error: err });
+    }
+}
+
 // Requesting a password reset email endpoint logic
 export const requestPasswordReset = async (req, res) => {
 
@@ -288,6 +337,8 @@ export const requestPasswordReset = async (req, res) => {
         });
     }
 }
+
+
 
 // Resetting a user's password endpoint logic
 export const resetPassword = async (req, res) => {
