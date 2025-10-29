@@ -410,7 +410,7 @@ export const resetPassword = async (req, res) => {
             // Update the users password with the new one
             await tx.user.update({
                 where: {
-                    userId
+                    id: userId
                 },
                 data: {
                     passwordHash
@@ -429,7 +429,7 @@ export const resetPassword = async (req, res) => {
             // Get their previous passwords in descending order by data created
             const previousHistory = await tx.passwordHistory.findMany({
                 where: {
-                    userId: id,
+                    userId,
                 },
                 orderBy: { createdAt: "desc" },
             });
