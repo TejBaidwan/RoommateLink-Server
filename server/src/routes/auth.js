@@ -53,7 +53,7 @@ router.post("/request-reset",
 router.post('/verify-reset-otp',
     [
         body("email").isEmail().withMessage("Valid email required"),
-        body("otp").notEmpty().withMessage("Valid OTP number required"),
+        body("otp").notEmpty().withMessage("Valid OTP number required").isLength({min: 6, max: 6}),
     ],
     verifyResetOTP
     )

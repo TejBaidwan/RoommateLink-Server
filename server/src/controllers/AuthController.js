@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { validationResult } from 'express-validator';
 import { generateRawToken, hashToken, verifyToken} from "../utils/token.js";
 import { addEmailJobToQueue} from "../services/emailQueue.js";
-import {generateOTP, verifyOTP} from "../utils/otp.js";
+import {generateOTP, hashOTP, verifyOTP} from "../utils/otp.js";
 
 // Auth controller that contains the different authentication methods
 
@@ -320,7 +320,7 @@ export const requestPasswordReset = async (req, res) => {
 
         // Generate a password reset OTP, hash it, and set it to expire in 15 minutes
         const rawOTP = generateOTP();
-        const otpHash = await hashToken(rawOTP);
+        const otpHash = await hashOTP(rawOTP);
         const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
         // Create a PasswordResetToken and store it in the db
