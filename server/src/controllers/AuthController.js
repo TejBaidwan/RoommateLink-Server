@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { validationResult } from 'express-validator';
 import { generateRawToken, hashToken, verifyToken} from "../utils/token.js";
 import { addEmailJobToQueue} from "../services/emailQueue.js";
+import {generateOTP, hashOTP, verifyOTP} from "../utils/otp.js";
 
 // Auth controller that contains the different authentication methods
 
@@ -239,6 +240,63 @@ export const resendVerification = async (req, res) => {
     }
 };
 
+// Verify a reset OTP endpoint
+export const verifyResetOTP = async (req, res) => {
+    try {
+
+        // Validating the request contents
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                errors: errors.array()
+            })
+        }
+
+        // Deconstructing the payload and getting the email and entered OTP
+        const { email, otp } = req.body;
+
+        // If the payload isn;t full indicate such
+        if (!email || !otp) {
+            return res.status(400).json({ message: "Email and OTP are required" });
+        }
+
+        // Get the user with this email
+        const user = await prisma.user.findUnique({ where: { email } });
+        const userId = user.id;
+
+        // Find the latest unexpired OTP for this user
+        const record = await prisma.passwordResetToken.findFirst({
+            where: {
+                userId,
+                expiresAt: { gt: new Date() }
+            },
+            orderBy: { createdAt: "desc" },
+        });
+
+        // Indicate if not OTP was found
+        if (!record) {
+            return res.status(400).json({ message: "OTP not found or expired" });
+        }
+
+        // Verify OTP using timing-safe comparison
+        const isValid = verifyOTP(otp, record.tokenHash);
+        if (!isValid) {
+            return res.status(400).json({ message: "Invalid OTP" });
+        }
+
+        // Delete all OTP once used
+        await prisma.passwordResetToken.deleteMany({
+            where: { userId }
+        });
+
+        // Respond with success message
+        return res.json({ message: "OTP verified", userId: record.userId });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ message: "Server error", error: err });
+    }
+}
+
 // Requesting a password reset email endpoint logic
 export const requestPasswordReset = async (req, res) => {
 
@@ -260,25 +318,25 @@ export const requestPasswordReset = async (req, res) => {
             });
         }
 
-        // Generate a password reset token, hashing it, and setting it to expire in 30 minutes
-        const rawToken = generateRawToken();
-        const tokenHash = await hashToken(rawToken);
-        const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+        // Generate a password reset OTP, hash it, and set it to expire in 15 minutes
+        const rawOTP = generateOTP();
+        const otpHash = await hashOTP(rawOTP);
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
         // Create a PasswordResetToken and store it in the db
         await prisma.passwordResetToken.create({
             data: {
                 userId: user.id,
-                tokenHash,
+                tokenHash: otpHash,
                 expiresAt
             }
         })
 
         // Add the password reset email request to the background queue
-        await addEmailJobToQueue(user.email, rawToken, user.id, "sendPasswordResetEmail");
+        await addEmailJobToQueue(user.email, rawOTP, user.id, "sendPasswordResetEmail");
 
         return res.json(
-            {message: "If an account exists, a reset link has been sent."}
+            {message: "If an account exists, a reset code has been sent."}
         );
     } catch (err) {
         return res.status(500).json({
@@ -302,39 +360,16 @@ export const resetPassword = async (req, res) => {
         }
 
         // Deconstructing the request payload and ensuring a valid token and password exist
-        const { token, id, password, password_confirmation } = req.body;
-        if (!token || !id || !password || !password_confirmation) {
+        const { userId, password, password_confirmation } = req.body;
+        if (!userId || !password || !password_confirmation) {
             return res.status(400).json({
-                message: "Invalid verification link"
-            })
-        }
-
-        //Finding the password reset token that's valid and assigned to this user
-        const record = await prisma.passwordResetToken.findFirst({
-            where: {
-                userId: id, expiresAt: { gt: new Date() }
-            },
-            orderBy: { createdAt: "desc" },
-        });
-
-        // Indicating if an expired, non-existent, or invalid token is presented
-        if (!record) {
-            return res.status(400).json({
-                message: "Token not found or expired"
-            })
-        }
-
-        // Verifying the token with the stored hashed token
-        const validToken = await verifyToken(token, record.tokenHash);
-        if (!validToken) {
-            return res.status(400).json({
-                message: "Invalid token"
+                message: "Missing fields"
             })
         }
 
         // Fetch user and their password history
         const user = await prisma.user.findUnique(
-            { where: { id },
+            { where: { id: userId },
                 include: { passwordHistory: {orderBy: { createdAt: "desc" } }, },
             }
             );
@@ -375,7 +410,7 @@ export const resetPassword = async (req, res) => {
             // Update the users password with the new one
             await tx.user.update({
                 where: {
-                    id
+                    userId
                 },
                 data: {
                     passwordHash
@@ -386,7 +421,7 @@ export const resetPassword = async (req, res) => {
             // Add this password to the password history table
             await tx.passwordHistory.create({
                 data: {
-                    userId: id,
+                    userId,
                     oldHash: passwordHash,
                 },
             });
@@ -408,13 +443,6 @@ export const resetPassword = async (req, res) => {
                     }
                 });
             }
-
-            // Delete the password reset tokens as they are one-time use
-            await tx.passwordResetToken.deleteMany({
-                where: {
-                    userId: id
-                },
-            });
         });
 
         return res.json({

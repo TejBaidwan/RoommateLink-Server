@@ -6,7 +6,7 @@ import {
     verifyEmail,
     resendVerification,
     requestPasswordReset,
-    resetPassword
+    resetPassword, verifyResetOTP
 } from '../controllers/AuthController.js';
 
 // Express router paths for auth routes
@@ -49,10 +49,18 @@ router.post("/request-reset",
     ],
     requestPasswordReset);
 
+// Verify OTP reset endpoint
+router.post('/verify-reset-otp',
+    [
+        body("email").isEmail().withMessage("Valid email required"),
+        body("otp").notEmpty().withMessage("Valid OTP number required").isLength({min: 6, max: 6}),
+    ],
+    verifyResetOTP
+    )
+
 router.post("/reset-password",
     [
-        body("token").notEmpty(),
-        body("id").notEmpty(),
+        body("userId").notEmpty(),
         body('password').isLength({ min: 8 })
             .withMessage('Password must be at least 8 characters long.')
             .matches(/[a-z]/)
