@@ -279,7 +279,7 @@ export const verifyResetOTP = async (req, res) => {
         }
 
         // Verify OTP using timing-safe comparison
-        const isValid = verifyOTP(otp, record.tokenHash);
+        const isValid = await verifyOTP(otp, record.tokenHash);
         if (!isValid) {
             return res.status(400).json({ message: "Invalid OTP" });
         }
