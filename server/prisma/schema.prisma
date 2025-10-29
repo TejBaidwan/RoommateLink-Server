@@ -33,7 +33,6 @@ model EmailVerificationToken {
   id        String   @id @default(uuid())
   userId    String
   tokenHash String   @unique
-  used      Boolean  @default(false)
   expiresAt DateTime
   createdAt DateTime @default(now())
 
@@ -49,7 +48,6 @@ model PasswordResetToken {
   id        String   @id @default(uuid())
   userId    String
   tokenHash String   @unique
-  used      Boolean  @default(false)
   expiresAt DateTime
   createdAt DateTime @default(now())
 
