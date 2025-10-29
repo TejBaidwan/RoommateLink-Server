@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { validationResult } from 'express-validator';
 import { generateRawToken, hashToken, verifyToken} from "../utils/token.js";
 import { addEmailJobToQueue} from "../services/emailQueue.js";
+import {generateOTP} from "../utils/otp.js";
 
 // Auth controller that contains the different authentication methods
 
@@ -260,22 +261,22 @@ export const requestPasswordReset = async (req, res) => {
             });
         }
 
-        // Generate a password reset token, hashing it, and setting it to expire in 30 minutes
-        const rawToken = generateRawToken();
-        const tokenHash = await hashToken(rawToken);
-        const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+        // Generate a password reset OTP, hash it, and set it to expire in 15 minutes
+        const rawOTP = generateOTP();
+        const otpHash = await hashToken(rawOTP);
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
         // Create a PasswordResetToken and store it in the db
         await prisma.passwordResetToken.create({
             data: {
                 userId: user.id,
-                tokenHash,
+                tokenHash: otpHash,
                 expiresAt
             }
         })
 
         // Add the password reset email request to the background queue
-        await addEmailJobToQueue(user.email, rawToken, user.id, "sendPasswordResetEmail");
+        await addEmailJobToQueue(user.email, rawOTP, user.id, "sendPasswordResetEmail");
 
         return res.json(
             {message: "If an account exists, a reset link has been sent."}

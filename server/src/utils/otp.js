@@ -2,7 +2,7 @@ import crypto from "crypto";
 
 // Generate a secure random 6-digit OTP
 export function generateOTP() {
-    const otp = crypto.randomInt(100000, 999999);
+    return crypto.randomInt(100000, 999999);
 }
 
 // Hash the OTP for storing in the database
